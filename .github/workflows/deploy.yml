@@ -18,7 +18,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # Use AWS access key from GitHub Secrets
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # Use AWS secret key from GitHub Secrets
-          aws-region: aps-south-1  # Specify the AWS region (change as needed)
+          aws-region: ap-south-1  # Specify the AWS region (change as needed)
 
       - name: Login to Amazon ECR
         id: ecr-login
