@@ -1,38 +1,38 @@
-name: Deploy to ECS
+name: Deploy to ECR
 
 on:
   push:
     branches:
-      - main
+      - main  # Trigger the workflow on pushes to the main branch
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest  # Specify the runner environment
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2  # Check out the repository code
 
-    - name: Log in to Amazon ECR
-      id: ecr_login
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # Use AWS access key from GitHub Secrets
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # Use AWS secret key from GitHub Secrets
+          aws-region: ap-south-1  # Specify the AWS region (change as needed)
 
-    - name: Build, tag, and push Docker image
-      env:
-        ECR_REGISTRY: ${{ steps.ecr_login.outputs.registry }}
-        ECR_REPOSITORY: hello-world
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: false  # Set to false to not mask the Docker password (can be set to true for security)
+          registry-type: private  # Specify the registry type as private
+          skip-logout: false  # Set to false to ensure logout after the action completes
 
-    - name: Deploy to ECS
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ap-south-1
-        CLUSTER_NAME: example-cluster
-        SERVICE_NAME: example-service
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment --task-definition $(aws ecs describe-task-definition --task-definition example-task | jq -r ".taskDefinition.taskDefinitionArn")
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}  # Get the ECR registry URL from the login step
+          ECR_REPOSITORY: my-repository  # Replace with your ECR repository name
+          IMAGE_TAG: ${{ github.sha }}  # Use the commit SHA as the image tag
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .  # Build the Docker image
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG  # Push the Docker image to ECR
