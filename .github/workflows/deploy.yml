@@ -18,7 +18,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # Use AWS access key from GitHub Secrets
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # Use AWS secret key from GitHub Secrets
-          aws-region: us-west-2  # Specify the AWS region (change as needed)
+          aws-region: aps-south-1  # Specify the AWS region (change as needed)
 
       - name: Login to Amazon ECR
         id: ecr-login
@@ -31,14 +31,18 @@ jobs:
       - name: List root directory contents
         run: ls -al  # List the contents of the root directory
 
-      - name: List docker directory contents
-        run: ls -al docker  # List the contents of the docker directory
-
       - name: Build and push Docker image
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}  # Get the ECR registry URL from the login step
           ECR_REPOSITORY: my-repository  # Replace with your ECR repository name
           IMAGE_TAG: ${{ github.sha }}  # Use the commit SHA as the image tag
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f /root/new . # Specify the Dockerfile path and build context
+          # Adjust the path to Dockerfile and build context based on the actual location
+          if [ -f ./Dockerfile ]; then
+            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f ./Dockerfile .
+          elif [ -f ./docker/Dockerfile ]; then
+            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f ./docker/Dockerfile ./docker
+          else
+            echo "Dockerfile not found in expected locations" && exit 1
+          fi
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG  # Push the Docker image to ECR
