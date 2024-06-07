@@ -18,7 +18,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # Use AWS access key from GitHub Secrets
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # Use AWS secret key from GitHub Secrets
-          aws-region: ap-south-1  # Specify the AWS region (change as needed)
+          aws-region: us-west-2  # Specify the AWS region (change as needed)
 
       - name: Login to Amazon ECR
         id: ecr-login
@@ -27,6 +27,10 @@ jobs:
           mask-password: false  # Set to false to not mask the Docker password (can be set to true for security)
           registry-type: private  # Specify the registry type as private
           skip-logout: false  # Set to false to ensure logout after the action completes
+
+      - name: Create ECR repository if it does not exist
+        run: |
+          aws ecr describe-repositories --repository-names my-repository || aws ecr create-repository --repository-name my-repository
 
       - name: List root directory contents
         run: ls -al  # List the contents of the root directory
