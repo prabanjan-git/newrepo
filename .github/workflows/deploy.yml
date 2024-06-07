@@ -34,5 +34,5 @@ jobs:
           ECR_REPOSITORY: my-repository  # Replace with your ECR repository name
           IMAGE_TAG: ${{ github.sha }}  # Use the commit SHA as the image tag
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker/Dockerfile .  # Specify the Dockerfile path
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f new/Dockerfile .  # Specify the Dockerfile path
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG  # Push the Docker image to ECR
