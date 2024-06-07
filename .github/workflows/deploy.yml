@@ -26,7 +26,7 @@ jobs:
         with:
           mask-password: false  # Set to false to not mask the Docker password (can be set to true for security)
           registry-type: private  # Specify the registry type as private
-          skip-logout: false  # Set to false to ensure logout after the action completes
+          skip-logout: True  # Set to false to ensure logout after the action completes
 
       - name: Create ECR repository if it does not exist
         run: |
