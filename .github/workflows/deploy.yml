@@ -1,74 +1,38 @@
-name: Deploy to ECR
+name: Deploy to ECS
 
 on:
   push:
     branches:
-      - main  # Trigger the workflow on pushes to the main branch
+      - main
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest  # Specify the runner environment
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2  # Check out the repository code
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # Use AWS access key from GitHub Secrets
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # Use AWS secret key from GitHub Secrets
-          aws-region: ap-south-1  # Specify the AWS region (change as needed)
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
 
-      - name: Login to Amazon ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v1
-        with:
-          mask-password: false  # Set to false to not mask the Docker password (can be set to true for security)
-          registry-type: private  # Specify the registry type as private
-          skip-logout: false  # Set to false to ensure logout after the action completes
+    - name: Log in to Amazon ECR
+      id: ecr_login
+      uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Create ECR repository if it does not exist
-        run: |
-          aws ecr describe-repositories --repository-names my-repository || aws ecr create-repository --repository-name my-repository
+    - name: Build and push Docker image
+      env:
+        ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+        ECR_REPOSITORY: hello-world-app
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: List root directory contents
-        run: ls -al  # List the contents of the root directory
-
-      - name: Build and push Docker image
-        env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}  # Get the ECR registry URL from the login step
-          ECR_REPOSITORY: my-repository  # Replace with your ECR repository name
-          IMAGE_TAG: ${{ github.sha }}  # Use the commit SHA as the image tag
-        run: |
-          # Adjust the path to Dockerfile and build context based on the actual location
-          if [ -f ./Dockerfile ]; then
-            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f ./Dockerfile .
-          elif [ -f ./docker/Dockerfile ]; then
-            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f ./docker/Dockerfile ./docker
-          else
-            echo "Dockerfile not found in expected locations" && exit 1
-          fi
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG  # Push the Docker image to ECR
-      - name: Deploy to ECS
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ap-south-1
-          CLUSTER_NAME: example-cluster
-          SERVICE_NAME: example-service
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment --task-definition $(aws ecs describe-task-definition --task-definition example-task | jq -r ".taskDefinition.taskDefinitionArn")    
-      - name: Register ECS task definition
-        run: |
-          sed -i 's|<IMAGE_URI>|'${{ steps.ecr-login.outputs.registry }}/my-repository:${{ github.sha }}'|g' ecs-task-definition.json
-          aws ecs register-task-definition --cli-input-json file://ecs-task-definition.json
-
-      - name: Update ECS service
-        env:
-          CLUSTER_NAME: my-cluster  # Replace with your ECS cluster name
-          SERVICE_NAME: my-service  # Replace with your ECS service name
-        run: |
-          TASK_DEFINITION_ARN=$(aws ecs describe-task-definition --task-definition example-task | jq -r ".taskDefinition.taskDefinitionArn")
-          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment --task-definition $TASK_DEFINITION_ARN    
+    - name: Deploy to ECS
+      env:
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        aws ecs update-service --cluster hello-world-cluster --service hello-world-service --force-new-deployment
